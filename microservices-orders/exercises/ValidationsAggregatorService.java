@@ -109,6 +109,8 @@ public class ValidationsAggregatorService implements Service {
         // TODO 5.1: window the data using `KGroupedStream#windowedBy`, specifically using `SessionWindows.with` to define 5-minute windows
         // ...
 
+        .windowedBy(SessionWindows.with(Duration.ofMinutes(5)))
+
         .aggregate(
             () -> 0L,
             (id, result, total) -> PASS.equals(result.getValidationResult()) ? total + 1 : total,
@@ -140,8 +142,11 @@ public class ValidationsAggregatorService implements Service {
         // TODO 5.2: group the records by key using `KStream#groupByKey`, providing the existing Serialized instance for ORDERS
         // ...
 
+        .groupByKey(serdes6)
+
         // TODO 5.3: use an aggregation operator `KTable#reduce` to collapse the records in this stream to a single order for a given key
         // ...
+        .reduce((k,v)-> k)
 
         //Push the validated order into the orders topic
         .toStream().to(ORDERS.name(), Produced.with(ORDERS.keySerde(), ORDERS.valueSerde()));

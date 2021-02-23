@@ -93,6 +93,14 @@ public class EmailService implements Service {
     // TODO 3.1: create a new `KStream` called `payments` from `payments_original`, using `KStream#selectKey` to rekey on order id specified by `payment.getOrderId()` instead of payment id
     // ...
 
+    // jd attempt final KStream payments = new KStream(payments_original).selectKey(payment.getOrderId());
+    // this caused invalid topology exception when build from topic directly
+
+    //final KStream<String, Payment> payments = builder.stream(PAYMENTS.name(),
+    // Consumed.with(PAYMENTS.keySerde(), PAYMENTS.valueSerde()))
+    final KStream<String, Payment> payments = payments_original
+    //Rekey payments to be by OrderId for the windowed join
+    .selectKey((s, payment) -> payment.getOrderId());
     final GlobalKTable<Long, Customer> customers = builder.globalTable(CUSTOMERS.name(),
         Consumed.with(CUSTOMERS.keySerde(), CUSTOMERS.valueSerde()));
 
@@ -110,6 +118,11 @@ public class EmailService implements Service {
             // 3) method that computes a value for the result record, in this case `EmailTuple::setCustomer`
             // ...
 
+           // jd attempt ValueJoiner.(customers, new KeyValueMapper().map(order.getCustomerId()), EmailTuple::setCustomer)
+           .join(customers,
+           (key1, tuple) -> tuple.order.getCustomerId(),
+           // note how, because we use a GKtable, we can join on any attribute of the Customer.
+           EmailTuple::setCustomer)
         //Now for each tuple send an email.
         .peek((key, emailTuple)
             -> emailer.sendEmail(emailTuple)
@@ -119,6 +132,7 @@ public class EmailService implements Service {
     orders.join(customers, (orderId, order) -> order.getCustomerId(), (order, customer) -> new OrderEnriched (order.getId(), order.getCustomerId(), customer.getLevel()))
       // TODO 3.3: route an enriched order record to a topic that is dynamically determined from the value of the customerLevel field of the corresponding customer
       // ...
+      .to((orderId, orderEnriched, record) -> orderEnriched.getCustomerLevel(), Produced.with(ORDERS_ENRICHED.keySerde(), ORDERS_ENRICHED.valueSerde()));
 
     return new KafkaStreams(builder.build(),
             baseStreamsConfig(bootstrapServers, stateDir, SERVICE_APP_ID, defaultConfig));

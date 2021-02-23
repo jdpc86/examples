@@ -112,6 +112,11 @@ public class InventoryService implements Service {
       // 2. the value Serde is derived from `Serdes.Long()` because it represents a count
       // ...
 
+      // jd attempt .keyValueStoreBuilder(RESERVED_STOCK_STORE_NAME)
+      // .persistentKeyValueStore(Serdes.Long())
+      .keyValueStoreBuilder(Stores.persistentKeyValueStore(RESERVED_STOCK_STORE_NAME),
+      Topics.WAREHOUSE_INVENTORY.keySerde(), Serdes.Long())
+
       .withLoggingEnabled(new HashMap<>());
     builder.addStateStore(reservedStock);
 
@@ -165,6 +170,9 @@ public class InventoryService implements Service {
         // TODO 6.2: update the reserved stock in the KeyValueStore called `reservedStocksStore`
         // 1. the key is the product in the order, using `OrderBean#getProduct`
         // 2. the value is the sum of the current reserved stock and the quantity in the order, using `OrderBean#getQuantity`
+
+        // jd attempt reservedStocksStore.set(order.getProduct, reserved + order.getQuantity);
+        reservedStocksStore.put(order.getProduct(), reserved + order.getQuantity());
 
         //validate the order
         validated = new OrderValidation(order.getId(), INVENTORY_CHECK, PASS);

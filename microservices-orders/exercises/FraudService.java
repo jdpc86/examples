@@ -93,6 +93,9 @@ public class FraudService implements Service {
         // TODO 4.1: filter this stream to include only orders in "CREATED" state, i.e., it should satisfy the predicate `OrderState.CREATED.equals(order.getState())`
         // ...
 
+        // jd attemp final KStream<String, Order> ordersCreated = orders.Predicate(OrderState.CREATED.equals(order.getState()));
+        .filter((id, order) -> OrderState.CREATED.equals(order.getState()));
+
     //Create an aggregate of the total value by customer and hold it with the order. We use session windows to
     // detect periods of activity.
     final KTable<Windowed<Long>, OrderValue> aggregate = orders
@@ -117,6 +120,14 @@ public class FraudService implements Service {
     // 1. First branched stream: FRAUD_CHECK will fail for predicate where order value >= FRAUD_LIMIT
     // 2. Second branched stream: FRAUD_CHECK will pass for predicate where order value < FRAUD_LIMIT
     // ...
+    // jd attempt 
+    // KStream<String, OrderValue>[] forks = new KStream<String, OrderValue>[2];
+    // forks[0] = ordersWithTotals.filter((k,v) -> v.getValue>= FRAUD_LIMIT);
+    // forks[1] = ordersWithTotals.filter((k,v) -> v.getValue < FRAUD_LIMIT); 
+    @SuppressWarnings("unchecked")
+    final KStream<String, OrderValue>[] forks = ordersWithTotals.branch(
+        (id, orderValue) -> orderValue.getValue() >= FRAUD_LIMIT,
+        (id, orderValue) -> orderValue.getValue() < FRAUD_LIMIT);
 
     forks[0].mapValues(
         orderValue -> new OrderValidation(orderValue.getOrder().getId(), FRAUD_CHECK, FAIL))
